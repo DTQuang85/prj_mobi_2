@@ -171,29 +171,39 @@ public class ProductListActivity extends BaseActivity {
                     NumberFormat nf = NumberFormat.getCurrencyInstance(new Locale("vi", "VN"));
 
                     for (DocumentSnapshot doc : querySnapshot) {
-                        // ... (giữ nguyên code load sản phẩm)
                         String name = doc.getString("name");
                         String brand = doc.getString("brand");
                         String category = doc.getString("category");
                         String description = doc.getString("description");
                         String imageUrl = doc.getString("imageUrl");
 
+                        // ==== GIÁ (an toàn) ====
                         double priceVnd = 0d;
                         Object rawPrice = doc.get("priceVnd");
                         if (rawPrice instanceof Number) {
                             priceVnd = ((Number) rawPrice).doubleValue();
                         } else if (rawPrice instanceof String) {
                             String digits = ((String) rawPrice).replaceAll("[^0-9]", "");
-                            if (!digits.isEmpty()) {
-                                try {
-                                    priceVnd = Double.parseDouble(digits);
-                                } catch (NumberFormatException ignore) {}
-                            }
+                            if (!digits.isEmpty()) try { priceVnd = Double.parseDouble(digits); } catch (Exception ignored) {}
                         }
-
                         String priceText = doc.getString("priceText");
                         if (priceText == null || priceText.trim().isEmpty()) {
                             priceText = priceVnd > 0 ? nf.format(priceVnd) : "Liên hệ";
+                        }
+
+                        // ==== SIZES (QUAN TRỌNG) ====
+                        List<Integer> sizesInt = null;
+                        Object sizesObj = doc.get("sizes");
+                        if (sizesObj instanceof List) {
+                            List<?> any = (List<?>) sizesObj;
+                            sizesInt = new ArrayList<>(any.size());
+                            for (Object x : any) {
+                                if (x instanceof Number) sizesInt.add(((Number) x).intValue());
+                                else if (x instanceof String) {
+                                    try { sizesInt.add(Integer.parseInt((String) x)); } catch (Exception ignored) {}
+                                }
+                            }
+                            if (sizesInt.isEmpty()) sizesInt = null;
                         }
 
                         Product product = new Product(
@@ -205,6 +215,8 @@ public class ProductListActivity extends BaseActivity {
                                 category != null ? category : "Không phân loại",
                                 brand != null ? brand : "Không thương hiệu"
                         );
+                        // GÁN SIZES VÀO PRODUCT
+                        product.sizes = (sizesInt != null) ? sizesInt : new ArrayList<>();
 
                         productList.add(product);
                     }
@@ -215,10 +227,11 @@ public class ProductListActivity extends BaseActivity {
                         Toast.makeText(this, "Không có sản phẩm nào", Toast.LENGTH_SHORT).show();
                     }
                 })
-                .addOnFailureListener(e -> {
-                    Toast.makeText(this, "Lỗi tải dữ liệu: " + e.getMessage(), Toast.LENGTH_LONG).show();
-                });
+                .addOnFailureListener(e ->
+                        Toast.makeText(this, "Lỗi tải dữ liệu: " + e.getMessage(), Toast.LENGTH_LONG).show()
+                );
     }
+
 
     protected void signOut() {
         mAuth.signOut();

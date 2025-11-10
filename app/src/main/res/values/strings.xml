@@ -12,4 +12,10 @@
     <!-- Chuỗi cho màn hình sản phẩm -->
     <string name="products">Sản phẩm</string>
     <string name="product_image">Hình ảnh sản phẩm</string>
+    <!-- Nếu muốn, thêm mấy text đang dùng trong layout -->
+    <string name="sneaker_introduction">Sneaker Introduction</string>
+    <string name="latest_sneaker_news">Latest Sneaker News</string>
+    <string name="featured_sneakers">Featured Sneakers</string>
+    <string name="content_desc_news_image">Ảnh tin tức</string>
+
 </resources>

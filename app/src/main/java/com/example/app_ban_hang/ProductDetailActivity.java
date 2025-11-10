@@ -36,9 +36,9 @@ public class ProductDetailActivity extends BaseActivity {
     private final NumberFormat vn = NumberFormat.getCurrencyInstance(new Locale("vi","VN"));
 
     private ImageView ivImg, ivAvatar;
-    private TextView tvName, tvPrice, tvDesc, tvQty;
+    private TextView tvName, tvPrice, tvDesc, tvQty, tvSizeLabel, tvSelectedSize;
     private Spinner spSize;
-    private Button btnMinus, btnPlus, btnAddToCart, btnBuyNow;
+    private Button btnMinus, btnPlus, btnAddToCart, btnFavorites;
     private FirebaseAuth mAuth;
 
     @Override
@@ -69,11 +69,15 @@ public class ProductDetailActivity extends BaseActivity {
         setSupportActionBar(toolbar);
         if (getSupportActionBar() != null) {
             getSupportActionBar().setTitle("Chi tiết sản phẩm");
+            getSupportActionBar().setDisplayHomeAsUpEnabled(true);
         }
+
+        toolbar.setNavigationOnClickListener(v -> onBackPressed());
 
         // Avatar
         ivAvatar = findViewById(R.id.ivAvatar);
 
+        // Product views
         ivImg = findViewById(R.id.ivImg);
         tvName = findViewById(R.id.tvName);
         tvPrice = findViewById(R.id.tvPrice);
@@ -83,7 +87,11 @@ public class ProductDetailActivity extends BaseActivity {
         btnMinus = findViewById(R.id.btnMinus);
         btnPlus = findViewById(R.id.btnPlus);
         btnAddToCart = findViewById(R.id.btnAddToCart);
-        btnBuyNow = findViewById(R.id.btnBuyNow);
+        btnFavorites = findViewById(R.id.btnFavorites);
+
+        // Size related views - THÊM CÁC VIEW MỚI
+        tvSizeLabel = findViewById(R.id.tvSizeLabel);
+        tvSelectedSize = findViewById(R.id.tvSelectedSize);
 
         // Xử lý click avatar
         if (ivAvatar != null) {
@@ -100,52 +108,89 @@ public class ProductDetailActivity extends BaseActivity {
                 .into(ivImg);
 
         // Thông tin
-        tvName.setText(product.name != null ? product.name : "—");
+        tvName.setText(product.name != null ? product.name : "Adidas Samba OG sneakers");
 
         // Hiển thị giá
         if (product.priceText != null && !product.priceText.trim().isEmpty()) {
             tvPrice.setText(product.priceText);
         } else if (product.priceVnd > 0) {
-            tvPrice.setText(vn.format(product.priceVnd));
+            tvPrice.setText(formatPrice(product.priceVnd));
         } else {
-            tvPrice.setText("Liên hệ");
+            tvPrice.setText("2.600.000 ₫");
         }
 
         tvDesc.setText(product.description != null && !product.description.isEmpty()
-                ? product.description : "Không có mô tả");
+                ? product.description : "Giày Adidas Samba cổ điển với thiết kế tối giản, phối màu nhã nhặn, phù hợp để đi chơi và tập luyện nhẹ");
         tvQty.setText(String.valueOf(qty));
 
-        // Sizes (Spinner)
-        if (product.sizes != null && !product.sizes.isEmpty()) {
-            List<String> items = new ArrayList<>();
-            for (Integer size : product.sizes) {
-                items.add("Size " + size);
+        // Sizes (Spinner) - FIX: Sử dụng method riêng
+        setupSizeSpinner();
+    }
+
+    private void setupSizeSpinner() {
+        // Sử dụng getSizes() để tránh null
+        List<Integer> availableSizes = product.sizes != null ? product.sizes : new ArrayList<>();
+
+        // DEBUG: Kiểm tra sizes
+        Toast.makeText(this, "Số lượng sizes: " + availableSizes.size(), Toast.LENGTH_SHORT).show();
+
+        if (availableSizes != null && !availableSizes.isEmpty()) {
+            List<String> sizeItems = new ArrayList<>();
+            for (Integer size : availableSizes) {
+                sizeItems.add("Size " + size);
             }
 
             ArrayAdapter<String> adapter = new ArrayAdapter<>(
-                    this, android.R.layout.simple_spinner_item, items
+                    this, android.R.layout.simple_spinner_item, sizeItems
             );
             adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
             spSize.setAdapter(adapter);
 
-            selectedSize = product.sizes.get(0); // mặc định chọn size đầu tiên
+            selectedSize = availableSizes.get(0); // mặc định chọn size đầu tiên
+            updateSelectedSizeDisplay();
 
             spSize.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
                 @Override
                 public void onItemSelected(android.widget.AdapterView<?> parent, View view, int position, long id) {
-                    selectedSize = product.sizes.get(position);
+                    selectedSize = availableSizes.get(position);
+                    updateSelectedSizeDisplay();
+                    Toast.makeText(ProductDetailActivity.this, "Đã chọn size: " + selectedSize, Toast.LENGTH_SHORT).show();
                 }
 
                 @Override
                 public void onNothingSelected(android.widget.AdapterView<?> parent) {
                     selectedSize = null;
+                    updateSelectedSizeDisplay();
                 }
             });
+
+            // Hiển thị phần chọn size
+            tvSizeLabel.setVisibility(View.VISIBLE);
             spSize.setVisibility(View.VISIBLE);
+            tvSelectedSize.setVisibility(View.VISIBLE);
         } else {
+            // Ẩn phần chọn size nếu không có
+            tvSizeLabel.setVisibility(View.GONE);
             spSize.setVisibility(View.GONE);
-            selectedSize = null;
+            tvSelectedSize.setVisibility(View.GONE);
+            Toast.makeText(this, "Sản phẩm này không có size", Toast.LENGTH_SHORT).show();
         }
+    }
+
+    private void updateSelectedSizeDisplay() {
+        if (tvSelectedSize != null) {
+            if (selectedSize != null) {
+                tvSelectedSize.setText("Đã chọn: Size " + selectedSize);
+                tvSelectedSize.setTextColor(getResources().getColor(android.R.color.holo_green_dark));
+            } else {
+                tvSelectedSize.setText("Vui lòng chọn size");
+                tvSelectedSize.setTextColor(getResources().getColor(android.R.color.darker_gray));
+            }
+        }
+    }
+
+    private String formatPrice(double price) {
+        return String.format("%,d ₫", (int) price);
     }
 
     private void bindEvents() {
@@ -153,12 +198,18 @@ public class ProductDetailActivity extends BaseActivity {
             if (qty > 1) {
                 qty--;
                 tvQty.setText(String.valueOf(qty));
+            } else {
+                Toast.makeText(this, "Số lượng tối thiểu là 1", Toast.LENGTH_SHORT).show();
             }
         });
 
         btnPlus.setOnClickListener(v -> {
-            qty++;
-            tvQty.setText(String.valueOf(qty));
+            if (qty < 10) { // Giới hạn tối đa 10 sản phẩm
+                qty++;
+                tvQty.setText(String.valueOf(qty));
+            } else {
+                Toast.makeText(this, "Số lượng tối đa là 10", Toast.LENGTH_SHORT).show();
+            }
         });
 
         btnAddToCart.setOnClickListener(v -> {
@@ -166,23 +217,26 @@ public class ProductDetailActivity extends BaseActivity {
                 Toast.makeText(this, "Vui lòng chọn size", Toast.LENGTH_SHORT).show();
                 return;
             }
+
+            // Thêm vào giỏ hàng
             CartManager.get().add(product, qty, selectedSize);
-            Toast.makeText(this,
-                    "Đã thêm " + qty + " sản phẩm" +
-                            (selectedSize != null ? " (size " + selectedSize + ")" : "") +
-                            " vào giỏ", Toast.LENGTH_SHORT).show();
+            String message = "Đã thêm " + qty + " " + product.name +
+                    (selectedSize != null ? " (size " + selectedSize + ")" : "") +
+                    " vào giỏ hàng";
+            Toast.makeText(this, message, Toast.LENGTH_LONG).show();
         });
 
-        btnBuyNow.setOnClickListener(v -> {
+        btnFavorites.setOnClickListener(v -> {
             if (spSize.getVisibility() == View.VISIBLE && selectedSize == null) {
                 Toast.makeText(this, "Vui lòng chọn size", Toast.LENGTH_SHORT).show();
                 return;
             }
-            CartManager.get().clear();
-            CartManager.get().add(product, qty, selectedSize);
-            startActivity(new Intent(this, CartActivity.class));
-            finish();
+
+            WishlistManager.get().add(product, selectedSize);
+            Toast.makeText(this, "Đã thêm vào danh sách yêu thích", Toast.LENGTH_SHORT).show();
+
         });
+
     }
 
     private void loadUserAvatar() {
@@ -194,10 +248,18 @@ public class ProductDetailActivity extends BaseActivity {
                     .placeholder(R.drawable.ic_person)
                     .error(R.drawable.ic_person)
                     .into(ivAvatar);
+        } else if (mAuth.getCurrentUser() != null && mAuth.getCurrentUser().getPhotoUrl() != null && ivAvatar != null) {
+            Glide.with(this)
+                    .load(mAuth.getCurrentUser().getPhotoUrl())
+                    .circleCrop()
+                    .placeholder(R.drawable.ic_person)
+                    .error(R.drawable.ic_person)
+                    .into(ivAvatar);
         }
     }
 
-    public void showProfileDialog() {
+    @Override
+    protected void showProfileDialog() {
         GoogleSignInAccount account = GoogleSignIn.getLastSignedInAccount(this);
 
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
@@ -248,7 +310,7 @@ public class ProductDetailActivity extends BaseActivity {
 
     private void signOut() {
         mAuth.signOut();
-        GoogleSignIn.getClient(this, new com.google.android.gms.auth.api.signin.GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN).build())
+        GoogleSignIn.getClient(this, new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN).build())
                 .signOut().addOnCompleteListener(this, task -> {
                     Toast.makeText(ProductDetailActivity.this, "Đã đăng xuất", Toast.LENGTH_SHORT).show();
                     Intent intent = new Intent(ProductDetailActivity.this, MainActivity.class);
