@@ -1,0 +1,15 @@
+<resources>
+    <string name="app_name">App bán hàng</string>
+    <string name="logo_desc">Logo ứng dụng</string>
+    <string name="title_login">Sneakers QStore</string>
+    <string name="hint_username">Tên đăng nhập</string>
+    <string name="hint_password">Mật khẩu</string>
+    <string name="remember_me">Ghi nhớ tôi</string>
+    <string name="forgot_password">Quên mật khẩu?</string>
+    <string name="login">Đăng nhập</string>
+    <string name="signup_prompt">Chưa có tài khoản? Đăng ký</string>
+
+    <!-- Chuỗi cho màn hình sản phẩm -->
+    <string name="products">Sản phẩm</string>
+    <string name="product_image">Hình ảnh sản phẩm</string>
+</resources>

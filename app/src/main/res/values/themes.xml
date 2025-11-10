@@ -1,0 +1,33 @@
+<resources>
+    <style name="Theme.App_ban_hang" parent="Theme.Material3.DayNight.NoActionBar">
+
+        <item name="colorPrimary">@color/app_black</item>
+        <item name="colorOnPrimary">@color/app_white</item>
+
+        <item name="android:windowBackground">@color/app_white</item>
+
+        <item name="colorSurface">@color/app_white</item>
+        <item name="colorOnSurface">@color/app_black</item>
+
+        <item name="android:textColorPrimary">@color/app_black</item>
+        <item name="android:textColorSecondary">@color/app_grey_dark</item>
+
+        <item name="materialButtonStyle">@style/Nike.Button</item>
+        <item name="textInputStyle">@style/Nike.EditText</item>
+    </style>
+
+    <style name="Nike.Button" parent="Widget.Material3.Button">
+        <item name="android:background">@drawable/button_black</item>
+        <item name="android:textColor">@color/app_white</item>
+        <item name="android:paddingStart">24dp</item>
+        <item name="android:paddingEnd">24dp</item>
+        <item name="android:paddingTop">16dp</item>
+        <item name="android:paddingBottom">16dp</item>
+        <item name="android:textAllCaps">true</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+
+    <style name="Nike.EditText" parent="Widget.Material3.TextInputLayout.OutlinedBox">
+    </style>
+
+</resources>
