@@ -1,0 +1,28 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- Base theme của app -->
+    <style name="Base.Theme.App_ban_hang" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- 🎨 Màu chủ đạo -->
+        <item name="colorPrimary">@color/purple_500</item>
+        <item name="colorOnPrimary">@android:color/white</item>
+        <item name="colorPrimaryContainer">@color/purple_200</item>
+
+        <!-- 💬 Toolbar style -->
+        <item name="toolbarStyle">@style/Widget.Material3.Toolbar</item>
+
+        <!-- ⚙️ Status bar -->
+        <item name="android:statusBarColor">?attr/colorPrimary</item>
+        <item name="android:windowLightStatusBar">false</item>
+
+        <!-- 🪄 Các control khác (nút, textfield) -->
+        <item name="materialButtonStyle">@style/Widget.Material3.Button</item>
+        <item name="textInputStyle">@style/Widget.Material3.TextInputLayout.OutlinedBox</item>
+
+        <!-- ✅ Nền tổng app màu trắng -->
+        <item name="android:windowBackground">@android:color/white</item>
+    </style>
+
+    <!-- Theme chính mà AndroidManifest sử dụng -->
+    <style name="Theme.App_ban_hang" parent="Base.Theme.App_ban_hang" />
+
+</resources>
