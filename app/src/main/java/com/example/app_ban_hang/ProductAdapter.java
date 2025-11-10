@@ -13,7 +13,7 @@ import com.bumptech.glide.Glide;
 
 import java.util.List;
 
-public class ProductAdapter extends RecyclerView.Adapter<ProductAdapter.VH> {
+public class ProductAdapter extends RecyclerView.Adapter<ProductAdapter.ProductViewHolder> {
 
     private final List<Product> data;
 
@@ -23,30 +23,58 @@ public class ProductAdapter extends RecyclerView.Adapter<ProductAdapter.VH> {
 
     @NonNull
     @Override
-    public VH onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+    public ProductViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
         View v = LayoutInflater.from(parent.getContext())
                 .inflate(R.layout.item_product, parent, false);
-        return new VH(v);
+        return new ProductViewHolder(v);
     }
 
     @Override
-    public void onBindViewHolder(@NonNull VH h, int position) {
-        Product p = data.get(position);
-        h.name.setText(p.name);
-        h.price.setText(p.priceText);
-        h.desc.setText(p.description);
-        h.itemView.setOnClickListener(v -> {
-            android.content.Intent i = new android.content.Intent(
+    public void onBindViewHolder(@NonNull ProductViewHolder holder, int position) {
+        Product product = data.get(position);
+
+        // Set data
+        holder.tvName.setText(product.name != null ? product.name : "Không có tên");
+
+        // Hiển thị giá
+        if (product.priceText != null && !product.priceText.trim().isEmpty()) {
+            holder.tvPrice.setText(product.priceText);
+        } else if (product.priceVnd > 0) {
+            java.text.NumberFormat nf = java.text.NumberFormat.getCurrencyInstance(
+                    new java.util.Locale("vi", "VN")
+            );
+            holder.tvPrice.setText(nf.format(product.priceVnd));
+        } else {
+            holder.tvPrice.setText("Liên hệ");
+        }
+
+        // Description
+        if (product.description != null && !product.description.trim().isEmpty()) {
+            holder.tvDesc.setText(product.description);
+            holder.tvDesc.setVisibility(View.VISIBLE);
+        } else {
+            holder.tvDesc.setVisibility(View.GONE);
+        }
+
+        // Load image
+        if (product.imageUrl != null && !product.imageUrl.isEmpty()) {
+            Glide.with(holder.itemView.getContext())
+                    .load(product.imageUrl)
+                    .centerCrop()
+                    .placeholder(R.drawable.logo)
+                    .error(R.drawable.logo)
+                    .into(holder.ivImg);
+        } else {
+            holder.ivImg.setImageResource(R.drawable.logo);
+        }
+
+        // Click listener
+        holder.itemView.setOnClickListener(v -> {
+            android.content.Intent intent = new android.content.Intent(
                     v.getContext(), ProductDetailActivity.class);
-            i.putExtra("product", p);
-            v.getContext().startActivity(i);
+            intent.putExtra("product", product);
+            v.getContext().startActivity(intent);
         });
-        // Dùng Glide để tải ảnh từ URL online (Google Drive / web)
-        Glide.with(h.itemView.getContext())
-                .load(p.imageUrl)
-                .centerCrop()
-                .placeholder(R.drawable.logo) // ảnh tạm
-                .into(h.img);
     }
 
     @Override
@@ -54,16 +82,16 @@ public class ProductAdapter extends RecyclerView.Adapter<ProductAdapter.VH> {
         return data.size();
     }
 
-    static class VH extends RecyclerView.ViewHolder {
-        ImageView img;
-        TextView name, price, desc;
+    static class ProductViewHolder extends RecyclerView.ViewHolder {
+        ImageView ivImg;
+        TextView tvName, tvPrice, tvDesc;
 
-        VH(@NonNull View v) {
+        ProductViewHolder(@NonNull View v) {
             super(v);
-            img = v.findViewById(R.id.ivImg);
-            name = v.findViewById(R.id.tvName);
-            price = v.findViewById(R.id.tvPrice);
-            desc = v.findViewById(R.id.tvDesc);
+            ivImg = v.findViewById(R.id.ivImg);
+            tvName = v.findViewById(R.id.tvName);
+            tvPrice = v.findViewById(R.id.tvPrice);
+            tvDesc = v.findViewById(R.id.tvDesc);
         }
     }
 }

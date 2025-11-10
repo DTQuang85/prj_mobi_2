@@ -1,15 +1,19 @@
 package com.example.app_ban_hang;
 
 import java.io.Serializable;
+import java.util.List;
 
 public class Product implements Serializable {
     public String name;
     public String priceText;     // "2.890.000 ₫"
-    public double priceVnd;      // 2890000 (để tính tiền)
+    public double priceVnd;      // 2890000
     public String description;
     public String imageUrl;
     public String category;
     public String brand;
+
+    // NEW
+    public List<Integer> sizes;
 
     public Product() {}
 

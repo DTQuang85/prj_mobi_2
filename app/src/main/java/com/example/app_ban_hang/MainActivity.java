@@ -3,58 +3,36 @@ package com.example.app_ban_hang;
 import android.content.Intent;
 import android.os.Bundle;
 import android.text.TextUtils;
-import android.view.KeyEvent;
-import android.view.inputmethod.EditorInfo;
 import android.widget.Button;
-import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
-import androidx.activity.result.ActivityResultLauncher;
-import androidx.activity.result.contract.ActivityResultContracts;
-import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.graphics.Insets;
-import androidx.core.view.ViewCompat;
-import androidx.core.view.WindowInsetsCompat;
 
-import com.google.android.gms.auth.api.signin.*;
+import com.google.android.gms.auth.api.signin.GoogleSignIn;
+import com.google.android.gms.auth.api.signin.GoogleSignInAccount;
+import com.google.android.gms.auth.api.signin.GoogleSignInClient;
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions;
+import com.google.android.gms.common.SignInButton;
 import com.google.android.gms.common.api.ApiException;
 import com.google.android.gms.tasks.Task;
-import com.google.firebase.auth.*;
-import com.google.android.gms.common.SignInButton;
+import com.google.android.material.textfield.TextInputEditText;
+import com.google.firebase.auth.AuthCredential;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.auth.GoogleAuthProvider;
 
 public class MainActivity extends AppCompatActivity {
 
-    private EditText etUsername, etPassword;
+    private TextInputEditText etEmail, etPassword;
     private Button btnLogin;
-    private TextView tvForgot, tvSignup;
     private SignInButton btnGoogle;
+    private TextView tvForgotPassword, tvSignup;
 
-    // Firebase
     private FirebaseAuth mAuth;
-    private GoogleSignInClient googleClient;
-
-    // Activity Result API cho Google Sign-In
-    private final ActivityResultLauncher<Intent> googleLauncher =
-            registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
-                if (result.getData() == null) {
-                    Toast.makeText(this, "Đăng nhập Google bị huỷ", Toast.LENGTH_SHORT).show();
-                    return;
-                }
-                Task<GoogleSignInAccount> task = GoogleSignIn.getSignedInAccountFromIntent(result.getData());
-                try {
-                    GoogleSignInAccount account = task.getResult(ApiException.class);
-                    if (account != null) {
-                        firebaseAuthWithGoogle(account.getIdToken());
-                    } else {
-                        Toast.makeText(this, "Không lấy được tài khoản Google", Toast.LENGTH_SHORT).show();
-                    }
-                } catch (ApiException e) {
-                    Toast.makeText(this, "Google Sign-In lỗi: " + e.getStatusCode(), Toast.LENGTH_SHORT).show();
-                }
-            });
+    private GoogleSignInClient googleSignInClient;
+    private static final int RC_SIGN_IN = 9001;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -62,126 +40,157 @@ public class MainActivity extends AppCompatActivity {
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_main);
 
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
-            Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
-            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
-            return insets;
-        });
+        mAuth = FirebaseAuth.getInstance();
 
         initViews();
-        initAuth();    // <— thêm dòng này
-        bindEvents();
-        autoSkipIfLoggedIn(); // <— tự vào app nếu đã đăng nhập trước đó
+        setupGoogleSignIn();
+        checkCurrentUser();
     }
 
     private void initViews() {
-        etUsername = findViewById(R.id.etUsername);
+        etEmail = findViewById(R.id.etEmail);
         etPassword = findViewById(R.id.etPassword);
-        btnLogin   = findViewById(R.id.btnLogin);
-        tvForgot   = findViewById(R.id.tvForgotPassword);
-        tvSignup   = findViewById(R.id.tvSignup);
-        btnGoogle  = findViewById(R.id.btnGoogle);
+        btnLogin = findViewById(R.id.btnLogin);
+        btnGoogle = findViewById(R.id.btnGoogle);
+        tvForgotPassword = findViewById(R.id.tvForgotPassword);
+        tvSignup = findViewById(R.id.tvSignup);
+
+        // Đăng nhập bằng email/password
+        btnLogin.setOnClickListener(v -> loginWithEmail());
+
+        // Đăng nhập bằng Google
+        btnGoogle.setOnClickListener(v -> signInWithGoogle());
+
+        // Quên mật khẩu
+        tvForgotPassword.setOnClickListener(v -> {
+            startActivity(new Intent(MainActivity.this, ForgotPasswordActivity.class));
+        });
+
+        // Đăng ký tài khoản
+        tvSignup.setOnClickListener(v -> {
+            startActivity(new Intent(MainActivity.this, RegisterActivity.class));
+        });
     }
 
-    private void initAuth() {
-        mAuth = FirebaseAuth.getInstance();
-
-        // default_web_client_id có trong strings.xml do google-services.json sinh ra
+    private void setupGoogleSignIn() {
         GoogleSignInOptions gso = new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
                 .requestIdToken(getString(R.string.default_web_client_id))
                 .requestEmail()
                 .build();
-
-        googleClient = GoogleSignIn.getClient(this, gso);
+        googleSignInClient = GoogleSignIn.getClient(this, gso);
     }
 
-    private void bindEvents() {
-        // Nhấn Done trên bàn phím ở ô mật khẩu cũng trigger đăng nhập (demo cũ)
-        etPassword.setOnEditorActionListener((v, actionId, event) -> {
-            boolean isEnter = event != null
-                    && event.getKeyCode() == KeyEvent.KEYCODE_ENTER
-                    && event.getAction() == KeyEvent.ACTION_DOWN;
-            if (actionId == EditorInfo.IME_ACTION_DONE || isEnter) {
-                attemptLogin(); // (tuỳ bạn giữ hay bỏ luồng user/pass)
-                return true;
-            }
-            return false;
-        });
-
-        btnLogin.setOnClickListener(v -> attemptLogin());
-
-        tvForgot.setOnClickListener(v ->
-                Toast.makeText(this, "Chức năng quên mật khẩu (demo)", Toast.LENGTH_SHORT).show()
-        );
-
-        tvSignup.setOnClickListener(v ->
-                Toast.makeText(this, "Đi tới màn hình đăng ký (demo)", Toast.LENGTH_SHORT).show()
-        );
-
-        // ==== Google Sign-In ====
-        btnGoogle.setOnClickListener(v -> {
-            Intent signInIntent = googleClient.getSignInIntent();
-            googleLauncher.launch(signInIntent);
-        });
+    private void checkCurrentUser() {
+        FirebaseUser currentUser = mAuth.getCurrentUser();
+        if (currentUser != null) {
+            startActivity(new Intent(MainActivity.this, ProductListActivity.class));
+            finish();
+        }
     }
 
-    private void firebaseAuthWithGoogle(@Nullable String idToken) {
-        if (idToken == null) {
-            Toast.makeText(this, "Thiếu ID Token", Toast.LENGTH_SHORT).show();
+    private void loginWithEmail() {
+        String email = etEmail.getText().toString().trim();
+        String password = etPassword.getText().toString().trim();
+
+        if (TextUtils.isEmpty(email)) {
+            showToast("Vui lòng nhập email", true);
+            etEmail.requestFocus();
             return;
         }
-        AuthCredential credential = GoogleAuthProvider.getCredential(idToken, null);
-        mAuth.signInWithCredential(credential)
+
+        if (!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+            showToast("Email không hợp lệ", true);
+            etEmail.requestFocus();
+            return;
+        }
+
+        if (TextUtils.isEmpty(password)) {
+            showToast("Vui lòng nhập mật khẩu", true);
+            etPassword.requestFocus();
+            return;
+        }
+
+        if (password.length() < 6) {
+            showToast("Mật khẩu phải có ít nhất 6 ký tự", true);
+            etPassword.requestFocus();
+            return;
+        }
+
+        btnLogin.setEnabled(false);
+        btnLogin.setText("Đang đăng nhập...");
+
+        mAuth.signInWithEmailAndPassword(email, password)
                 .addOnCompleteListener(this, task -> {
+                    btnLogin.setEnabled(true);
+                    btnLogin.setText("Đăng nhập");
+
                     if (task.isSuccessful()) {
-                        goToProductList();
+                        showToast("🎉 Đăng nhập thành công!", false);
+                        startActivity(new Intent(MainActivity.this, ProductListActivity.class));
+                        finish();
                     } else {
-                        Toast.makeText(this, "Firebase Auth lỗi: " +
-                                (task.getException() != null ? task.getException().getMessage() : ""), Toast.LENGTH_SHORT).show();
+                        String errorMessage = getErrorMessage(task.getException());
+                        showToast(errorMessage, true);
                     }
                 });
     }
 
-    private void autoSkipIfLoggedIn() {
-        if (mAuth.getCurrentUser() != null) {
-            goToProductList();
+    private void signInWithGoogle() {
+        Intent signInIntent = googleSignInClient.getSignInIntent();
+        startActivityForResult(signInIntent, RC_SIGN_IN);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+
+        if (requestCode == RC_SIGN_IN) {
+            Task<GoogleSignInAccount> task = GoogleSignIn.getSignedInAccountFromIntent(data);
+            try {
+                GoogleSignInAccount account = task.getResult(ApiException.class);
+                firebaseAuthWithGoogle(account);
+            } catch (ApiException e) {
+                showToast("❌ Đăng nhập Google thất bại", true);
+            }
         }
     }
 
-    private void goToProductList() {
-        Toast.makeText(this, "Đăng nhập thành công!", Toast.LENGTH_SHORT).show();
-        startActivity(new Intent(this, ProductListActivity.class));
-        finish();
+    private void firebaseAuthWithGoogle(GoogleSignInAccount acct) {
+        AuthCredential credential = GoogleAuthProvider.getCredential(acct.getIdToken(), null);
+        mAuth.signInWithCredential(credential)
+                .addOnCompleteListener(this, task -> {
+                    if (task.isSuccessful()) {
+                        showToast("🎉 Đăng nhập Google thành công!", false);
+                        startActivity(new Intent(MainActivity.this, ProductListActivity.class));
+                        finish();
+                    } else {
+                        showToast("❌ Đăng nhập Google thất bại", true);
+                    }
+                });
     }
 
-    // === Code demo cũ: user/pass (tuỳ chọn giữ hoặc bỏ) ===
-    private void attemptLogin() {
-        etUsername.setError(null);
-        etPassword.setError(null);
+    private String getErrorMessage(Exception exception) {
+        if (exception == null) return "❌ Đã xảy ra lỗi";
 
-        String username = etUsername.getText().toString().trim();
-        String password = etPassword.getText().toString();
+        String errorMsg = exception.getMessage();
+        if (errorMsg == null) return "❌ Đã xảy ra lỗi";
 
-        boolean cancel = false;
-        if (TextUtils.isEmpty(username)) {
-            etUsername.setError("Vui lòng nhập tên đăng nhập");
-            cancel = true;
-        }
-        if (TextUtils.isEmpty(password)) {
-            etPassword.setError("Vui lòng nhập mật khẩu");
-            cancel = true;
-        } else if (password.length() < 6) {
-            etPassword.setError("Mật khẩu tối thiểu 6 ký tự");
-            cancel = true;
-        }
-
-        if (cancel) return;
-
-        // Demo cũ: bạn có thể bỏ phần này khi dùng Google/Firebase Auth chuẩn
-        if (username.equals("admin") && password.equals("123456")) {
-            goToProductList();
+        if (errorMsg.contains("user-not-found")) {
+            return "❌ Không tìm thấy tài khoản với email này";
+        } else if (errorMsg.contains("wrong-password")) {
+            return "❌ Mật khẩu không đúng";
+        } else if (errorMsg.contains("invalid-email")) {
+            return "❌ Email không hợp lệ";
+        } else if (errorMsg.contains("network error")) {
+            return "❌ Lỗi kết nối mạng";
+        } else if (errorMsg.contains("too many requests")) {
+            return "❌ Quá nhiều lần thử. Vui lòng thử lại sau";
         } else {
-            Toast.makeText(this, "Sai tên đăng nhập hoặc mật khẩu", Toast.LENGTH_SHORT).show();
+            return "❌ Đăng nhập thất bại";
         }
+    }
+
+    private void showToast(String message, boolean isError) {
+        Toast.makeText(this, message, Toast.LENGTH_LONG).show();
     }
 }

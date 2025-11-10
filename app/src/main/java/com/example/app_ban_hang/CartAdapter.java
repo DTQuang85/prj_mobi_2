@@ -6,7 +6,6 @@ import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
@@ -17,7 +16,7 @@ import java.text.NumberFormat;
 import java.util.List;
 import java.util.Locale;
 
-public class CartAdapter extends RecyclerView.Adapter<CartAdapter.VH> {
+public class CartAdapter extends RecyclerView.Adapter<CartAdapter.CartViewHolder> {
 
     private List<CartItem> data;
     private final CartListener listener;
@@ -35,98 +34,113 @@ public class CartAdapter extends RecyclerView.Adapter<CartAdapter.VH> {
 
     @NonNull
     @Override
-    public VH onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+    public CartViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
         View v = LayoutInflater.from(parent.getContext())
                 .inflate(R.layout.item_cart, parent, false);
-        return new VH(v);
+        return new CartViewHolder(v);
     }
 
     @Override
-    public void onBindViewHolder(@NonNull VH h, int position) {
+    public void onBindViewHolder(@NonNull CartViewHolder holder, int position) {
         CartItem item = data.get(position);
-        Product p = item.product;
+        Product product = item.product;
 
-        // Hiển thị thông tin
-        h.tvName.setText(p.name);
-        h.tvPrice.setText(p.priceText);
-        h.tvQty.setText(String.valueOf(item.quantity));
+        // Set data
+        holder.tvName.setText(product.name != null ? product.name : "Không có tên");
 
-        // Tổng tiền
-        double itemTotal = item.lineTotal();
-        h.tvLineTotal.setText("Tổng: " + nf.format(itemTotal));
+        String priceText = (product.priceText != null && !product.priceText.trim().isEmpty())
+                ? product.priceText : nf.format(product.priceVnd);
+        holder.tvPrice.setText(priceText);
 
-        // Load ảnh
-        Glide.with(h.itemView.getContext())
-                .load(p.imageUrl)
-                .centerCrop()
-                .placeholder(R.drawable.logo)
-                .into(h.ivImg);
+        holder.tvQty.setText(String.valueOf(item.quantity));
+        holder.tvLineTotal.setText("Tổng: " + nf.format(item.lineTotal()));
 
-        // Sự kiện NÚT CỘNG (+)
-        h.btnPlus.setOnClickListener(v -> {
-            int newQty = item.quantity + 1;
-            CartManager.get().setQuantity(position, newQty);
+        // Load image
+        if (product.imageUrl != null && !product.imageUrl.isEmpty()) {
+            Glide.with(holder.itemView.getContext())
+                    .load(product.imageUrl)
+                    .centerCrop()
+                    .placeholder(R.drawable.logo)
+                    .error(R.drawable.logo)
+                    .into(holder.ivImg);
+        } else {
+            holder.ivImg.setImageResource(R.drawable.logo);
+        }
 
-            // Cập nhật hiển thị
-            h.tvQty.setText(String.valueOf(newQty));
-            double newTotal = item.lineTotal();
-            h.tvLineTotal.setText("Tổng: " + nf.format(newTotal));
+        // Size
+        if (holder.tvSize != null) {
+            if (item.size != null) {
+                holder.tvSize.setVisibility(View.VISIBLE);
+                holder.tvSize.setText("Size " + item.size);
+            } else {
+                holder.tvSize.setVisibility(View.GONE);
+            }
+        }
 
-            // Thông báo
+        // Button listeners
+        holder.btnPlus.setOnClickListener(v -> {
+            int currentPosition = holder.getBindingAdapterPosition();
+            if (currentPosition == RecyclerView.NO_POSITION) return;
+
+            CartItem currentItem = data.get(currentPosition);
+            int newQty = currentItem.quantity + 1;
+            CartManager.get().setQuantity(currentPosition, newQty);
+            holder.tvQty.setText(String.valueOf(newQty));
+            holder.tvLineTotal.setText("Tổng: " + nf.format(currentItem.lineTotal()));
             if (listener != null) listener.onQuantityChanged();
         });
 
-        // Sự kiện NÚT TRỪ (-)
-        h.btnMinus.setOnClickListener(v -> {
-            if (item.quantity > 1) {
-                int newQty = item.quantity - 1;
-                CartManager.get().setQuantity(position, newQty);
+        holder.btnMinus.setOnClickListener(v -> {
+            int currentPosition = holder.getBindingAdapterPosition();
+            if (currentPosition == RecyclerView.NO_POSITION) return;
 
-                // Cập nhật hiển thị
-                h.tvQty.setText(String.valueOf(newQty));
-                double newTotal = item.lineTotal();
-                h.tvLineTotal.setText("Tổng: " + nf.format(newTotal));
-
-                // Thông báo
+            CartItem currentItem = data.get(currentPosition);
+            if (currentItem.quantity > 1) {
+                int newQty = currentItem.quantity - 1;
+                CartManager.get().setQuantity(currentPosition, newQty);
+                holder.tvQty.setText(String.valueOf(newQty));
+                holder.tvLineTotal.setText("Tổng: " + nf.format(currentItem.lineTotal()));
                 if (listener != null) listener.onQuantityChanged();
             } else {
-                // Nếu số lượng = 1, bấm trừ sẽ xóa
-                if (listener != null) listener.onItemRemoved(position);
+                if (listener != null) listener.onItemRemoved(currentPosition);
             }
         });
 
-        // Sự kiện NÚT XÓA
-        h.btnRemove.setOnClickListener(v -> {
-            if (listener != null) listener.onItemRemoved(position);
+        holder.btnRemove.setOnClickListener(v -> {
+            int currentPosition = holder.getBindingAdapterPosition();
+            if (currentPosition == RecyclerView.NO_POSITION) return;
+            if (listener != null) listener.onItemRemoved(currentPosition);
         });
-    } // ĐÃ XÓA DẤU NGOẶC THỪA Ở ĐÂY
+    }
 
     @Override
     public int getItemCount() {
-        return data.size();
+        return data != null ? data.size() : 0;
     }
 
-    // Cập nhật dữ liệu khi có thay đổi
     public void updateData(List<CartItem> newData) {
         this.data = newData;
         notifyDataSetChanged();
     }
 
-    static class VH extends RecyclerView.ViewHolder {
+    static class CartViewHolder extends RecyclerView.ViewHolder {
         ImageView ivImg;
-        TextView tvName, tvPrice, tvQty, tvLineTotal;
+        TextView tvName, tvPrice, tvQty, tvLineTotal, tvSize;
         Button btnMinus, btnPlus, btnRemove;
 
-        VH(@NonNull View v) {
-            super(v);
-            ivImg = v.findViewById(R.id.ivImg);
-            tvName = v.findViewById(R.id.tvName);
-            tvPrice = v.findViewById(R.id.tvPrice);
-            tvQty = v.findViewById(R.id.tvQty);
-            tvLineTotal = v.findViewById(R.id.tvLineTotal);
-            btnMinus = v.findViewById(R.id.btnMinus);
-            btnPlus = v.findViewById(R.id.btnPlus);
-            btnRemove = v.findViewById(R.id.btnRemove);
+        CartViewHolder(@NonNull View itemView) {
+            super(itemView);
+            ivImg = itemView.findViewById(R.id.ivImg);
+            tvName = itemView.findViewById(R.id.tvName);
+            tvPrice = itemView.findViewById(R.id.tvPrice);
+            tvQty = itemView.findViewById(R.id.tvQty);
+            tvLineTotal = itemView.findViewById(R.id.tvLineTotal);
+            btnMinus = itemView.findViewById(R.id.btnMinus);
+            btnPlus = itemView.findViewById(R.id.btnPlus);
+            btnRemove = itemView.findViewById(R.id.btnRemove);
+
+            // Tìm tvSize nếu có
+            tvSize = itemView.findViewById(R.id.tvSize);
         }
     }
 }
