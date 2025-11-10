@@ -1,15 +1,26 @@
 package com.example.app_ban_hang;
 
-public class Product {
-    public final String name;
-    public final String priceText;
-    public final String description;
-    public final int imageRes;
+import java.io.Serializable;
 
-    public Product(String name, String priceText, String description, int imageRes) {
+public class Product implements Serializable {
+    public String name;
+    public String priceText;     // "2.890.000 ₫"
+    public double priceVnd;      // 2890000 (để tính tiền)
+    public String description;
+    public String imageUrl;
+    public String category;
+    public String brand;
+
+    public Product() {}
+
+    public Product(String name, String priceText, double priceVnd, String description,
+                   String imageUrl, String category, String brand) {
         this.name = name;
         this.priceText = priceText;
+        this.priceVnd = priceVnd;
         this.description = description;
-        this.imageRes = imageRes;
+        this.imageUrl = imageUrl;
+        this.category = category;
+        this.brand = brand;
     }
 }

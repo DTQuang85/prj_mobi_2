@@ -1,27 +1,60 @@
 package com.example.app_ban_hang;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.view.KeyEvent;
 import android.view.inputmethod.EditorInfo;
 import android.widget.Button;
-import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
+
 import androidx.activity.EdgeToEdge;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
-import android.content.Intent;
+
+import com.google.android.gms.auth.api.signin.*;
+import com.google.android.gms.common.api.ApiException;
+import com.google.android.gms.tasks.Task;
+import com.google.firebase.auth.*;
+import com.google.android.gms.common.SignInButton;
 
 public class MainActivity extends AppCompatActivity {
 
     private EditText etUsername, etPassword;
     private Button btnLogin;
-    private CheckBox cbRemember;
     private TextView tvForgot, tvSignup;
+    private SignInButton btnGoogle;
+
+    // Firebase
+    private FirebaseAuth mAuth;
+    private GoogleSignInClient googleClient;
+
+    // Activity Result API cho Google Sign-In
+    private final ActivityResultLauncher<Intent> googleLauncher =
+            registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
+                if (result.getData() == null) {
+                    Toast.makeText(this, "Đăng nhập Google bị huỷ", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                Task<GoogleSignInAccount> task = GoogleSignIn.getSignedInAccountFromIntent(result.getData());
+                try {
+                    GoogleSignInAccount account = task.getResult(ApiException.class);
+                    if (account != null) {
+                        firebaseAuthWithGoogle(account.getIdToken());
+                    } else {
+                        Toast.makeText(this, "Không lấy được tài khoản Google", Toast.LENGTH_SHORT).show();
+                    }
+                } catch (ApiException e) {
+                    Toast.makeText(this, "Google Sign-In lỗi: " + e.getStatusCode(), Toast.LENGTH_SHORT).show();
+                }
+            });
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -36,26 +69,40 @@ public class MainActivity extends AppCompatActivity {
         });
 
         initViews();
+        initAuth();    // <— thêm dòng này
         bindEvents();
+        autoSkipIfLoggedIn(); // <— tự vào app nếu đã đăng nhập trước đó
     }
 
     private void initViews() {
         etUsername = findViewById(R.id.etUsername);
         etPassword = findViewById(R.id.etPassword);
         btnLogin   = findViewById(R.id.btnLogin);
-        cbRemember = findViewById(R.id.cbRemember);
         tvForgot   = findViewById(R.id.tvForgotPassword);
         tvSignup   = findViewById(R.id.tvSignup);
+        btnGoogle  = findViewById(R.id.btnGoogle);
+    }
+
+    private void initAuth() {
+        mAuth = FirebaseAuth.getInstance();
+
+        // default_web_client_id có trong strings.xml do google-services.json sinh ra
+        GoogleSignInOptions gso = new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+                .requestIdToken(getString(R.string.default_web_client_id))
+                .requestEmail()
+                .build();
+
+        googleClient = GoogleSignIn.getClient(this, gso);
     }
 
     private void bindEvents() {
-        // Nhấn Done trên bàn phím ở ô mật khẩu cũng trigger đăng nhập
+        // Nhấn Done trên bàn phím ở ô mật khẩu cũng trigger đăng nhập (demo cũ)
         etPassword.setOnEditorActionListener((v, actionId, event) -> {
             boolean isEnter = event != null
                     && event.getKeyCode() == KeyEvent.KEYCODE_ENTER
                     && event.getAction() == KeyEvent.ACTION_DOWN;
             if (actionId == EditorInfo.IME_ACTION_DONE || isEnter) {
-                attemptLogin();
+                attemptLogin(); // (tuỳ bạn giữ hay bỏ luồng user/pass)
                 return true;
             }
             return false;
@@ -70,10 +117,45 @@ public class MainActivity extends AppCompatActivity {
         tvSignup.setOnClickListener(v ->
                 Toast.makeText(this, "Đi tới màn hình đăng ký (demo)", Toast.LENGTH_SHORT).show()
         );
+
+        // ==== Google Sign-In ====
+        btnGoogle.setOnClickListener(v -> {
+            Intent signInIntent = googleClient.getSignInIntent();
+            googleLauncher.launch(signInIntent);
+        });
     }
 
+    private void firebaseAuthWithGoogle(@Nullable String idToken) {
+        if (idToken == null) {
+            Toast.makeText(this, "Thiếu ID Token", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        AuthCredential credential = GoogleAuthProvider.getCredential(idToken, null);
+        mAuth.signInWithCredential(credential)
+                .addOnCompleteListener(this, task -> {
+                    if (task.isSuccessful()) {
+                        goToProductList();
+                    } else {
+                        Toast.makeText(this, "Firebase Auth lỗi: " +
+                                (task.getException() != null ? task.getException().getMessage() : ""), Toast.LENGTH_SHORT).show();
+                    }
+                });
+    }
+
+    private void autoSkipIfLoggedIn() {
+        if (mAuth.getCurrentUser() != null) {
+            goToProductList();
+        }
+    }
+
+    private void goToProductList() {
+        Toast.makeText(this, "Đăng nhập thành công!", Toast.LENGTH_SHORT).show();
+        startActivity(new Intent(this, ProductListActivity.class));
+        finish();
+    }
+
+    // === Code demo cũ: user/pass (tuỳ chọn giữ hoặc bỏ) ===
     private void attemptLogin() {
-        // Reset lỗi
         etUsername.setError(null);
         etPassword.setError(null);
 
@@ -95,19 +177,11 @@ public class MainActivity extends AppCompatActivity {
 
         if (cancel) return;
 
-        // Demo: kiểm tra giả lập (bạn thay bằng call API thật)
-        // ... trong attemptLogin(), nhánh đăng nhập thành công:
+        // Demo cũ: bạn có thể bỏ phần này khi dùng Google/Firebase Auth chuẩn
         if (username.equals("admin") && password.equals("123456")) {
-            String msg = cbRemember.isChecked()
-                    ? "Đăng nhập thành công (đã ghi nhớ)!"
-                    : "Đăng nhập thành công!";
-            Toast.makeText(this, msg, Toast.LENGTH_SHORT).show();
-
-            startActivity(new Intent(this, ProductListActivity.class));
-            // finish(); // nếu muốn không quay lại màn login
+            goToProductList();
         } else {
             Toast.makeText(this, "Sai tên đăng nhập hoặc mật khẩu", Toast.LENGTH_SHORT).show();
         }
-
     }
 }

@@ -1,7 +1,7 @@
 <resources>
     <string name="app_name">App bán hàng</string>
     <string name="logo_desc">Logo ứng dụng</string>
-    <string name="title_login">Sneakers HCM-UTE</string>
+    <string name="title_login">Sneakers QStore</string>
     <string name="hint_username">Tên đăng nhập</string>
     <string name="hint_password">Mật khẩu</string>
     <string name="remember_me">Ghi nhớ tôi</string>

@@ -9,6 +9,8 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.bumptech.glide.Glide;
+
 import java.util.List;
 
 public class ProductAdapter extends RecyclerView.Adapter<ProductAdapter.VH> {
@@ -30,10 +32,21 @@ public class ProductAdapter extends RecyclerView.Adapter<ProductAdapter.VH> {
     @Override
     public void onBindViewHolder(@NonNull VH h, int position) {
         Product p = data.get(position);
-        h.img.setImageResource(p.imageRes);
         h.name.setText(p.name);
         h.price.setText(p.priceText);
         h.desc.setText(p.description);
+        h.itemView.setOnClickListener(v -> {
+            android.content.Intent i = new android.content.Intent(
+                    v.getContext(), ProductDetailActivity.class);
+            i.putExtra("product", p);
+            v.getContext().startActivity(i);
+        });
+        // Dùng Glide để tải ảnh từ URL online (Google Drive / web)
+        Glide.with(h.itemView.getContext())
+                .load(p.imageUrl)
+                .centerCrop()
+                .placeholder(R.drawable.logo) // ảnh tạm
+                .into(h.img);
     }
 
     @Override
@@ -44,6 +57,7 @@ public class ProductAdapter extends RecyclerView.Adapter<ProductAdapter.VH> {
     static class VH extends RecyclerView.ViewHolder {
         ImageView img;
         TextView name, price, desc;
+
         VH(@NonNull View v) {
             super(v);
             img = v.findViewById(R.id.ivImg);
